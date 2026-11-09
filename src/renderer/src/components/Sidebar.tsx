@@ -39,6 +39,7 @@ import { ContextMenu, confirmDialog, type MenuItem, type MenuState } from './Dia
 import { FoldToggle, useFold } from './Fold'
 import { MissionsCard, useSidebarParts } from './Missions'
 import { UpdateNote } from './Update'
+import { useSidebarOrder } from './sidebar-order'
 import { WorkspaceSelector } from './Workspaces'
 import { AgentAvatar, Icon, MeAvatar, TucaMark, useJustEnded, type IconName } from './ui'
 
@@ -164,6 +165,7 @@ export function Sidebar(): ReactNode {
   const agentOf = (id: string): Agent | undefined => agents.find((a) => a.id === id)
   const channels = conversations.filter((c) => c.kind === 'channel')
   const dms = conversations.filter((c) => c.kind === 'dm' && agentOf(c.name)?.kind !== 'tuca')
+  const order = useSidebarOrder(settings.sidebarOrder, dms, agents.filter(isTeam), (sidebarOrder) => updateSettings({ sidebarOrder }))
   const [menu, setMenu] = useState<MenuState>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
   const open = (e: React.MouseEvent, items: MenuItem[]): void => {
@@ -403,15 +405,16 @@ export function Sidebar(): ReactNode {
 
         {dms.length > 0 && (
         <Section id="dms" label={team ? L('Suas mensagens diretas', 'Your direct messages') : L('Mensagens diretas', 'Direct messages')} unread={unreadIn(dms)} waiting={dmsWaiting}>
-          {dms.map((c) => {
+          {order.dms.map((c) => {
             const agent = agentOf(c.name)
             if (!agent) return null
             return (
-              <div key={c.id} onContextMenu={(e) => open(e, dmMenu(c.id, agent.id, agent.name))}>
+              <div key={c.id} onContextMenu={(e) => open(e, order.menu('dms', c.id, dmMenu(c.id, agent.id, agent.name)))} {...order.row('dms', c.id, agent.name)}>
                 <DmItem id={c.id} agent={agent} unread={c.unread} />
               </div>
             )
           })}
+          <div className="channel-drop" {...order.end('dms')} />
         </Section>
         )}
 
@@ -426,13 +429,13 @@ export function Sidebar(): ReactNode {
             ) : undefined
           }
         >
-          {agents
-            .filter(isTeam)
+          {order.agents
             .map((a) => (
-              <div key={a.id} onContextMenu={(e) => open(e, agentMenu(a.id, a.name))}>
+              <div key={a.id} onContextMenu={(e) => open(e, order.menu('agents', a.id, agentMenu(a.id, a.name)))} {...order.row('agents', a.id, a.name)}>
                 <AgentItem id={a.id} owner={team && a.owner !== you ? personById({ people }, a.owner)?.name : undefined} />
               </div>
             ))}
+          <div className="channel-drop" {...order.end('agents')} />
           {agents.some((a) => a.archived) && (
             <button className="nav-item nav-item--quiet" onClick={() => openDialog({ kind: 'archived' })}>
               <Icon name="layers" />
